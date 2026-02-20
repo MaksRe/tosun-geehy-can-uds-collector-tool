@@ -1,0 +1,2 @@
+"""CAN communication layer."""
+
