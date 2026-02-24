@@ -17,6 +17,7 @@ venv/
 # Build artifacts
 build/
 dist/
+release_assets/
 *.egg-info/
 
 # Runtime logs and generated files
