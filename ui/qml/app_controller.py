@@ -145,7 +145,7 @@ class AppController(QObject, AppControllerCanTrafficMixin, AppControllerCollecto
             self._apply_collector_output_directory(Path.cwd() / "logs", emit_signal=False)
         self._collector_session_dir: Path | None = None
         self._collector_csv_managers: dict[int, CollectorCsvManager] = {}
-        self._collector_poll_vars = [UdsData.raw_fuel_level, UdsData.raw_temperature]
+        self._collector_poll_vars = [UdsData.curr_fuel_tank, UdsData.raw_fuel_level, UdsData.raw_temperature]
         self._collector_poll_node_index = 0
         self._collector_poll_phase = 0
         self._collector_trend_points: list[dict[str, object]] = []
@@ -1367,6 +1367,9 @@ class AppController(QObject, AppControllerCanTrafficMixin, AppControllerCollecto
             return parsed.toLocalFile()
 
         return str(path_or_url)
+
+    def _set_programming_active(self, active):
+        value = bool(active)
 
         if not value:
             if self._programming_start_timer.isActive():

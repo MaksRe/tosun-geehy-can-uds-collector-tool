@@ -169,7 +169,7 @@ class AppControllerCollectorMixin:
             node = {
                 "nodeSa": normalized,
                 "period": 0,
-                "fuelLevel": 0,
+                "fuelLevel": 0.0,
                 "temperature": 0.0,
                 "fuelCount": 0,
                 "temperatureCount": 0,
@@ -440,7 +440,7 @@ class AppControllerCollectorMixin:
                 {
                     "node": f"0x{int(node_sa) & 0xFF:02X}",
                     "period": str(int(node.get("period", 0))),
-                    "fuelLevel": str(int(node.get("fuelLevel", 0))),
+                    "fuelLevel": f"{float(node.get('fuelLevel', 0.0)):.1f}",
                     "temperature": f"{float(node.get('temperature', 0.0)):.1f}",
                     "fuelCount": str(int(node.get("fuelCount", 0))),
                     "temperatureCount": str(int(node.get("temperatureCount", 0))),
@@ -461,7 +461,7 @@ class AppControllerCollectorMixin:
             measurement_time=str(timestamp),
             period_ticks=int(node.get("period", 0)),
             temperature_c=float(node.get("temperature", 0.0)),
-            fuel_percent=int(node.get("fuelLevel", 0)),
+            fuel_percent=float(node.get("fuelLevel", 0.0)),
         )
 
     def _handle_collector_frame(self, timestamp: str, parsed_id: J1939CanIdentifier, payload: list[int]):
@@ -502,17 +502,19 @@ class AppControllerCollectorMixin:
 
         if did == int(UdsData.curr_fuel_tank.pid):
             node["period"] = value
-            self._append_collector_csv(node_sa, node, timestamp)
             nodes_changed = True
         elif did == int(UdsData.raw_fuel_level.pid):
-            node["period"] = int(self._collector_poll_interval_ms)
-            node["fuelLevel"] = value
+            fuel_level = value / 10.0
+            if fuel_level < 0.0:
+                fuel_level = 0.0
+            if fuel_level > 100.0:
+                fuel_level = 100.0
+            node["fuelLevel"] = fuel_level
             node["fuelCount"] = int(node.get("fuelCount", 0)) + 1
             self._append_collector_csv(node_sa, node, timestamp)
             has_trend_update = True
             nodes_changed = True
         elif did == int(UdsData.raw_temperature.pid):
-            node["period"] = int(self._collector_poll_interval_ms)
             temperature = value / 10.0
             node["temperature"] = temperature
             node["temperatureCount"] = int(node.get("temperatureCount", 0)) + 1
@@ -542,20 +544,21 @@ class AppControllerCollectorMixin:
             return
 
         self._collector_poll_node_index %= len(nodes)
+        poll_vars_count = len(self._collector_poll_vars)
+        self._collector_poll_phase %= poll_vars_count
 
         node_sa = int(nodes[self._collector_poll_node_index]) & 0xFF
-        self._collector_poll_phase = 0 if self._collector_poll_phase <= 0 else 1
         poll_var = self._collector_poll_vars[self._collector_poll_phase]
 
         tx_identifier = copy(UdsIdentifiers.tx)
         tx_identifier.dst = node_sa
         self._collector_read_service.read_data_by_identifier(tx_identifier.identifier, poll_var)
 
-        if self._collector_poll_phase == 0:
-            self._collector_poll_phase = 1
+        next_phase = (self._collector_poll_phase + 1) % poll_vars_count
+        self._collector_poll_phase = next_phase
+        if next_phase != 0:
             self._collector_poll_timer.setInterval(self._collector_poll_interval_ms)
         else:
-            self._collector_poll_phase = 0
             self._collector_poll_node_index = (self._collector_poll_node_index + 1) % len(nodes)
             self._collector_poll_timer.setInterval(self._collector_cycle_pause_ms)
 

@@ -45,12 +45,12 @@ class CollectorCsvManager:
         measurement_time: str,
         period_ticks: int,
         temperature_c: float,
-        fuel_percent: int,
+        fuel_percent: float,
     ):
         row = (
             self._format_value(str(measurement_time)),
             self._format_value(int(period_ticks)),
             self._format_value(float(temperature_c)),
-            self._format_value(int(fuel_percent)),
+            self._format_value(float(fuel_percent)),
         )
         self._append(self._csv_path, row)
